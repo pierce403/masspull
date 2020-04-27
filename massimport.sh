@@ -1,7 +1,7 @@
-for ((i=1;i<=254;i++));
+for ((i=1;i<=255;i++));
 do
   echo "Importing $i.0.0.0/8"
-  masscan --readscan $i-* -oJ $i.json
-  screen -S $i-import -d -m python3 masscan_upload.py $i.json
+  masscan --readscan data/$i-* -oL import/$i.txt
+  screen -S $i-import -d -m python3 nweb_upload.py import/$i.txt
 done
 

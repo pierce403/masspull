@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import json
+import time
+import random
 from sys import argv, exit
 from elasticsearch import Elasticsearch, helpers
 es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
@@ -55,6 +57,12 @@ host_actions=[]
 for line in f:
   try:
     linedata = line.rstrip().split(' ')
+
+    # make sure the line is somewhat what we expect
+    # should be masscan --readfile <in.bin> -oL out.txt
+    if len(linedata)!=5:
+      continue
+
     service_actions.append({"port":linedata[2],"ip":linedata[3],"timestamp":linedata[4]})
     host_actions.append({"_id":linedata[3],"ip":linedata[3],"timestamp":linedata[4]})
     # check the first five lines for duplicate data
@@ -64,7 +72,7 @@ for line in f:
       if int(result['hits']['total']['value']) > 0:
         exit("we've already seen this data")
 
-    if count%10000 == 0:
+    if len(service_actions)>=10000:
       helpers.bulk(es, service_actions, index=service_index, doc_type='_doc')
       helpers.bulk(es, host_actions, index=host_index, doc_type='_doc')
       service_actions=[]
@@ -73,6 +81,8 @@ for line in f:
 
   except Exception as e:
     print(e)
+    print("something went wrong, waiting 5-15 mins ..")
+    time.sleep(random.randint(300,1200))
     continue
 
 # don't forget to upload that last part!
