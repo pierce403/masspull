@@ -1,15 +1,19 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+ <head>
+  <title>Index of /data</title>
+ </head>
+ <body>
+<h1>Index of /data</h1>
+  <table>
+   <tr><th valign="top">&nbsp;</th><th>Name</th><th>Last modified</th><th>Size</th><th>~Lines</th></tr>
+   <tr><th colspan="5"><hr></th></tr>
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><html>
-<title>Directory listing for /data/</title>
-<body>
-<h2>Directory listing for /data/</h2>
-<hr>
-<ul>
 {% for file in files %}
-<li><a href="{{file}}">{{file}}</a>
+<tr><td valign="top">&nbsp;</td><td><a href="{{file['name']}}">{{file['name']}}</a>
+</td><td align="right">{{file['date']}} </td><td align="right">{{file['size']}}</td><td align="right">{{file['lines']}}</td><td>&nbsp;</td></tr>
 {% endfor %}
-</ul>
-<hr>
-</body>
-</html>
+
+</table>
+</body></html>
 
