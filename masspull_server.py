@@ -1,7 +1,7 @@
 import flask
 from flask import render_template, request, Flask, g, send_from_directory, abort, jsonify
-#from flask_sqlalchemy import SQLAlchemy
-#from sqlalchemy import Table, Column, Float, Integer, String, MetaData, ForeignKey
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Table, Column, Float, Integer, String, DateTime, MetaData, ForeignKey, func
 from werkzeug.utils import secure_filename
 
 import json
@@ -9,6 +9,8 @@ import random
 import string
 import os
 import time
+from datetime import datetime
+import glob
 
 from web3.auto import w3
 from eth_account.messages import defunct_hash_message
@@ -19,6 +21,8 @@ from ethhelper import *
 
 app = Flask(__name__,static_url_path='/static')
 app.jinja_env.add_extension('jinja2.ext.do')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///uploads.db'
+db = SQLAlchemy(app)
 
 # Setup the Flask-JWT-Extended extension
 # log2(26^22) ~= 100 (pull at least 100 bits of entropy)
@@ -32,6 +36,31 @@ app.config['JWT_CSRF_CHECK_FORM'] = True
 jwt = JWTManager(app)
 
 app.config['UPLOAD_FOLDER'] = 'uploads'
+
+@app.before_first_request
+def setup():
+  print("[+] running setup")
+  try:
+    db.create_all()
+    print("[+] created uploads db")
+  except:
+    print("[+] uploads db already exists")
+
+# schema to track uploaded files
+class Upload(db.Model):
+  user = db.Column(db.String(80))
+  status = db.Column(db.String(80))
+  filename = db.Column(db.String(80), primary_key=True, nullable=False, unique=True)
+  filesize = db.Column(Integer, default=0)
+  lines = db.Column(Integer, default=0)
+  ctime = db.Column(DateTime, default=func.now())
+
+# schema to track votes
+class Votes(db.Model):
+  filename = db.Column(db.String(80), primary_key=True, nullable=False, unique=True)
+  user = db.Column(db.String(80), primary_key=True, nullable=False)
+  support = db.Column(Integer)
+  ctime = db.Column(DateTime, default=func.now())
 
 @app.route('/')
 def landing():
@@ -63,6 +92,9 @@ def upload():
       file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
       current_user = get_jwt_identity()
+
+      db.session.add(Upload(user=current_user,filename=filename,status="NEW"))
+      db.session.commit()
       #numtokens = tokencount(current_user)
       #if numtokens > 100:
       #  msg="The Galaxy is on Orion's Belt"
@@ -91,6 +123,37 @@ def data():
     thefiles.append({'name':file,'date':thedate,'size':nicesize,'lines':thelines})
   return render_template("data.html",files=thefiles)
 
+@app.route('/uploads/')
+def uploads():
+  thefiles = []
+  #for file in os.listdir('data'):
+  for upload in Upload.query.all(): # TODO maybe limit by date at some point?
+    print("FOUND "+upload.filename)
+    thedate = str(upload.ctime)
+    #thedate = datetime.fromtimestamp(upload.ctime)
+    thesize = upload.filesize
+    nicesize = thesize
+    if thesize>1024:
+      nicesize=str(round(thesize/1024,2))+"K"
+    if thesize>(1024*1024):
+      nicesize=str(round(thesize/(1024*1024),2))+"M"
+    thefiles.append({'name':upload.filename,'date':thedate,'size':nicesize,'lines':upload.lines})
+
+  return render_template("uploads.html",files=thefiles)
+
+
+@app.route('/data/<path:filename>')
+def data_files(filename):
+  # Add custom handling here.
+  # Send a file download response.
+  return send_from_directory('data', filename)
+
+@app.route('/uploads/<path:filename>')
+def upload_files(filename):
+  # Add custom handling here.
+  # Send a file download response.
+  return send_from_directory('uploads', filename)
+
 # custom hook to ensure user gets logged out if jwt fails
 @jwt.invalid_token_loader
 def invalid_token_loader(msg):
@@ -104,13 +167,6 @@ def expired_token_loader(msg):
   resp = jsonify({'msg': 'Token has expired'})
   unset_jwt_cookies(resp) # this usually doesn't happen for some reason
   return resp,401
-
-@app.route('/data/<path:filename>')
-def assets(filename):
-  # Add custom handling here.
-  # Send a file download response.
-  return send_from_directory('data', filename)
-
 @app.route('/secret')
 @jwt_required
 def secret():
