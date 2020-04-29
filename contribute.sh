@@ -7,8 +7,16 @@ mkdir -pv output # ensure the output dir exists
 if [ "$TARGET" -gt 0 ] && [ "$TARGET" -lt 255 ]
 then
   echo "Scanning $TARGET.0.0.0/8"
-  masscan $TARGET.0.0.0/8 -p `cat ports.txt` --excludefile exclude.conf --rate 1000000 -oL output/$TARGET-`date +%s`.txt
 
+  if test -f paused.conf
+  then
+    echo "found pause file!"
+    masscan --resume paused.conf
+
+  else
+    masscan $TARGET.0.0.0/8 -p `cat ports.txt` --excludefile exclude.conf --rate 1000000 -oL output/$TARGET-`date +%s`.txt
+
+  fi
   exit
 fi
 
