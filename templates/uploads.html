@@ -6,12 +6,27 @@
  <body>
 <h1>Index of /uploads</h1>
   <table>
-   <tr><th valign="top">&nbsp;</th><th>Name</th><th>Last modified</th><th>Size</th><th>~Lines</th></tr>
-   <tr><th colspan="5"><hr></th></tr>
+   <tr><th valign="top">&nbsp;</th>
+{% if admin is sameas true %}
+  <th>Mod</th>
+{% endif %}
+   <th>Name</th><th>Status</th><th>Last modified</th><th>Size</th><th>Lines</th><th>User</th></tr>
+   <tr><th colspan="7"><hr></th></tr>
 
 {% for file in files %}
-<tr><td valign="top">&nbsp;</td><td><a href="{{file['name']}}">{{file['name']}}</a>
-</td><td align="right">{{file['date']}} </td><td align="right">{{file['size']}}</td><td align="right">{{file['lines']}}</td><td>&nbsp;</td></tr>
+<tr>
+  <td valign="top">&nbsp;</td>
+{% if admin is sameas true %}
+  <td>(<a href="/approve?f={{file['name']}}">+</a>/<a href="/reject?f={{file['name']}}">-</a>)</td>
+{% endif %}
+  <td><a href="{{file['name']}}">{{file['name']}}</a></td>
+  <td align="center">{{file['status']}} </td>
+  <td align="right">{{file['date']}} </td>
+  <td align="right">{{file['size']}}</td>
+  <td align="right">{{file['lines']}}</td>
+  <td>{{file['user']}} </td>
+  <td>&nbsp;</td>
+</tr>
 {% endfor %}
 
 </table>

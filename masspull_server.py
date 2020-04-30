@@ -29,13 +29,15 @@ db = SQLAlchemy(app)
 app.config['JWT_SECRET_KEY'] = ''.join(random.choice(string.ascii_lowercase) for i in range(22))
 #app.config['JWT_SECRET_KEY'] = '12345'
 app.config['JWT_TOKEN_LOCATION'] = ['cookies']
-#app.config['JWT_COOKIE_SECURE'] = True # TODO MAKE SURE THIS IS TRUE!!
+app.config['JWT_COOKIE_SECURE'] = True # TODO MAKE SURE THIS IS TRUE!!
 #app.config['JWT_ACCESS_COOKIE_PATH'] = '/api/'
 app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 app.config['JWT_CSRF_CHECK_FORM'] = True
 jwt = JWTManager(app)
 
 app.config['UPLOAD_FOLDER'] = 'uploads'
+
+admins = ['0x7ab874Eeef0169ADA0d225E9801A3FfFfa26aAC3']
 
 @app.before_first_request
 def setup():
@@ -75,7 +77,7 @@ def getwork():
 
 @app.route('/submit',methods=['GET', 'POST'])
 @jwt_optional
-def upload():
+def submit():
   if request.method == 'GET':
     return render_template("submit.html",csrf_token=(get_raw_jwt() or {}).get("csrf"))
   else:
@@ -89,18 +91,44 @@ def upload():
       return "was that a file?"
     if file:
       filename = secure_filename(file.filename)
-      file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+      if len(filename)>20:
+        return "file name too long"
 
+      filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+      # make sure this is a new file
+      if os.path.exists(filepath):
+        return "we already have that file"
+      # save the file to disk
+      file.save(filepath)
+      # get the filesize
+      filesize = os.path.getsize(filepath)
+      # count the lines in the file
+      linecount = 0
+      f=open(filepath,"r",encoding="utf-8",errors='ignore')
+      while True:
+        bl=f.read(65535) # read in the file 64k at a time
+        if not bl: break
+        linecount += bl.count("\n") # count the newlines
+
+      # extract user info from JWT
       current_user = get_jwt_identity()
 
-      db.session.add(Upload(user=current_user,filename=filename,status="NEW"))
+      newupload = Upload()
+      newupload.user = current_user
+      newupload.filename = filename
+      newupload.status = "NEW"
+      newupload.filesize = filesize
+      newupload.lines = linecount
+
+      db.session.add(newupload)
       db.session.commit()
       #numtokens = tokencount(current_user)
       #if numtokens > 100:
       #  msg="The Galaxy is on Orion's Belt"
       #else:
       #  msg="You need more than 100 GST to view this message."
-      return ("HELLO "+str(current_user))
+      return ("Thank you "+str(current_user))
 
 @app.route('/data/')
 def data():
@@ -124,6 +152,7 @@ def data():
   return render_template("data.html",files=thefiles)
 
 @app.route('/uploads/')
+@jwt_required
 def uploads():
   thefiles = []
   #for file in os.listdir('data'):
@@ -137,10 +166,11 @@ def uploads():
       nicesize=str(round(thesize/1024,2))+"K"
     if thesize>(1024*1024):
       nicesize=str(round(thesize/(1024*1024),2))+"M"
-    thefiles.append({'name':upload.filename,'date':thedate,'size':nicesize,'lines':upload.lines})
+    thefiles.append({'user':upload.user,'name':upload.filename,'status':upload.status,'date':thedate,'size':nicesize,'lines':upload.lines})
 
-  return render_template("uploads.html",files=thefiles)
+  user = get_jwt_identity()
 
+  return render_template("uploads.html",files=thefiles, admin=(user in admins))
 
 @app.route('/data/<path:filename>')
 def data_files(filename):
@@ -154,6 +184,37 @@ def upload_files(filename):
   # Send a file download response.
   return send_from_directory('uploads', filename)
 
+# TODO LOL CSRF
+@app.route('/approve')
+@jwt_required
+def approve_file():
+  filename = request.args.get('f')
+  uploaded = Upload.query.filter_by(status="NEW").filter_by(filename=filename).first()
+  if not uploaded:
+    return "sorry, not seeing that file"
+  uploaded.status="APPROVED"
+  db.session.commit()
+  try:
+    os.rename('uploads/'+filename,'data/'+filename)
+  except:
+    return "rename failed"
+  return "okay, approved "+str(filename)
+
+@app.route('/reject')
+@jwt_required
+def reject_file():
+  filename = request.args.get('f')
+  uploaded = Upload.query.filter_by(status="NEW").filter_by(filename=filename).first()
+  if not uploaded:
+    return "sorry, not seeing that file"
+  uploaded.status="REJECTED"
+  db.session.commit()
+  try:
+    os.remove('uploads/'+filename)
+  except:
+    return "removal failed"
+  return "okay, rejected "+str(filename)
+ 
 # custom hook to ensure user gets logged out if jwt fails
 @jwt.invalid_token_loader
 def invalid_token_loader(msg):
