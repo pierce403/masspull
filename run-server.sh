@@ -3,6 +3,8 @@ export LC_ALL="C.UTF-8"
 export LANG="C.UTF-8"
 export FLASK_APP=./masspull_server.py
 
+source .env
+
 if [ ! -d venv ]
 then
     echo "[+] Creating new python3 virtualenv named venv"

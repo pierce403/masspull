@@ -1,5 +1,5 @@
 import flask
-from flask import render_template, request, Flask, g, send_from_directory, abort, jsonify
+from flask import render_template, redirect, request, Flask, g, send_from_directory, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Table, Column, Float, Integer, String, DateTime, MetaData, ForeignKey, func
 from werkzeug.utils import secure_filename
@@ -11,6 +11,7 @@ import os
 import time
 from datetime import datetime
 import glob
+from pprint import pprint
 
 from web3.auto import w3
 from eth_account.messages import defunct_hash_message
@@ -29,7 +30,8 @@ db = SQLAlchemy(app)
 app.config['JWT_SECRET_KEY'] = ''.join(random.choice(string.ascii_lowercase) for i in range(22))
 #app.config['JWT_SECRET_KEY'] = '12345'
 app.config['JWT_TOKEN_LOCATION'] = ['cookies']
-app.config['JWT_COOKIE_SECURE'] = True # TODO MAKE SURE THIS IS TRUE!!
+if app.debug == False:
+  app.config['JWT_COOKIE_SECURE'] = True
 #app.config['JWT_ACCESS_COOKIE_PATH'] = '/api/'
 app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 app.config['JWT_CSRF_CHECK_FORM'] = True
@@ -76,7 +78,7 @@ def getwork():
   return json.dumps(work)
 
 @app.route('/submit',methods=['GET', 'POST'])
-@jwt_optional
+@jwt_required
 def submit():
   if request.method == 'GET':
     return render_template("submit.html",csrf_token=(get_raw_jwt() or {}).get("csrf"))
@@ -218,16 +220,29 @@ def reject_file():
 # custom hook to ensure user gets logged out if jwt fails
 @jwt.invalid_token_loader
 def invalid_token_loader(msg):
-  resp = jsonify({'msg': msg})
+  #resp = jsonify({'msg': msg})
+  resp = redirect('/login', code=302)
   unset_jwt_cookies(resp) # this usually doesn't happen for some reason
-  return resp,200
+  pprint(vars(resp))
+  return resp
 
 # custom hook to ensure user gets logged out if jwt fails
 @jwt.expired_token_loader
 def expired_token_loader(msg):
-  resp = jsonify({'msg': 'Token has expired'})
+  #resp = jsonify({'msg': 'Token has expired'})
+  resp = redirect('/login', code=302)
   unset_jwt_cookies(resp) # this usually doesn't happen for some reason
-  return resp,401
+  pprint(vars(resp))
+  return resp
+
+# custom hook to ensure user gets logged out if jwt fails
+@jwt.unauthorized_loader
+def unauthorized_loader(msg):
+  resp = jsonify({'msg': msg})
+  #unset_jwt_cookies(resp) # this usually doesn't happen for some reason
+  #return resp,401
+  return redirect('/login')
+
 @app.route('/secret')
 @jwt_required
 def secret():
@@ -239,8 +254,11 @@ def secret():
     msg="You need more than 100 GST to view this message."
   return ("HELLO "+str(current_user)+" "+msg)
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET','POST'])
+@jwt_optional
 def login():
+    if request.method == 'GET':
+      return render_template("login.html",nonce="hello", user=str(get_jwt_identity()))
 
     print("[+] creating session")
 
@@ -249,9 +267,11 @@ def login():
     public_address = request.json[0]
     signature = request.json[1]
 
-    #domain = "masspull.org"
-    domain = "127.0.0.1"
-
+    if app.debug == True:
+      domain = "127.0.0.1"
+    else:
+      domain = "masspull.org"
+    
     rightnow = int(time.time())
     sortanow = rightnow-rightnow%600
 
