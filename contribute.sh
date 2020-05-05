@@ -15,6 +15,7 @@ then
 
   else
     masscan $TARGET.0.0.0/8 -p `cat ports.txt` --excludefile exclude.conf --rate 1000000 -oL output/$TARGET-`date +%s`.txt
+    rm -vf paused.conf
 
   fi
   exit
