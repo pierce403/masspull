@@ -38,6 +38,8 @@ function handleAuth(accountAddress, signature)
 
 }
 
+document.getElementById("msg").textContent = 'Metamask required for Web3 Login';
+
 ethereum.enable().then(function () {
 
     provider = new ethers.providers.Web3Provider(web3.currentProvider);
@@ -56,7 +58,7 @@ ethereum.enable().then(function () {
                 provider.getBalance(String(result[0])).then(function (balance) {
                     var myBalance = (balance / ethers.constants.WeiPerEther).toFixed(4);
                     console.log("Your Balance: " + myBalance);
-                    document.getElementById("msg").textContent = 'ETH Balance: ' + myBalance;
+                    document.getElementById("msg").textContent = 'Web3 Verification Successful';
                 });
 
                 // get a signer object so we can do things that need signing

@@ -1,17 +1,29 @@
-<!DOCTYPE html>
 <html>
-<body>
+<body bgcolor="black" text="white" link="white" alink="white" vlink="white">
+
+<center>
+<br><br><div id="msg">Please Enable Javascript</div><br><br>
 
 {% if user == 'None' %}
-Hey, you should log in. <button onclick='login();'>LOGIN</button>
+Log in with <a href="https://metamask.io">Metamask</a>: <button onclick='login();'>Login</button>
 {%else %}
 Welcome {{user}}!
 <br><br>
 
-Check out <a href="submit">submit</a>, or <a href="uploads">uploads</a>
+<form action="submit" method="post" enctype="multipart/form-data">
+    Select file to upload:
+    <input name="csrf_token" type="hidden" value="{{ csrf_token }}">
+    <input type="file" name="file" id="fileToUpload">
+    <input type="submit" value="Upload Data" name="submit">
+</form>
+
+View recent uploads <a href="uploads">here</a><br>
+
+Uploads should be masscan logs that were generated<br>
+with the contribute.sh script as seen on the <a href="https://github.com/pierce403/masspull/blob/master/contribute.sh">Github</a>.
 {% endif %}
 
-<br><div id="msg">Please Enable Javascript</div>
+</center>
 
 <script src="static/ethers-v4.min.js"></script>
 <script src="static/app.js"></script>

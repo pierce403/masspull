@@ -57,6 +57,8 @@ class Upload(db.Model):
   filename = db.Column(db.String(80), primary_key=True, nullable=False, unique=True)
   filesize = db.Column(Integer, default=0)
   lines = db.Column(Integer, default=0)
+  pointsEarned = db.Column(Integer, default=0)
+  pointsRewarded = db.Column(Integer, default=0)
   ctime = db.Column(DateTime, default=func.now())
 
 # schema to track votes
@@ -186,6 +188,22 @@ def upload_files(filename):
   # Send a file download response.
   return send_from_directory('uploads', filename)
 
+@app.route('/leaderboard')
+#@jwt_required
+def leaderboard():
+  theleaders = {}
+  for upload in Upload.query.filter_by(status="APPROVED").all(): # TODO maybe limit by date at some point?
+    try:
+      theleaders[upload.user]+=upload.pointsEarned
+    except:
+      theleaders[upload.user]=upload.pointsEarned
+
+  #theleaders["potato"]=66
+  #theleaders["tomato"]=33
+  #theleaders["monster"]=99
+
+  return render_template("leaderboard.html",leaders=theleaders)
+
 # TODO LOL CSRF
 @app.route('/approve')
 @jwt_required
@@ -195,6 +213,7 @@ def approve_file():
   if not uploaded:
     return "sorry, not seeing that file"
   uploaded.status="APPROVED"
+  uploaded.pointsEarned=1
   db.session.commit()
   try:
     os.rename('uploads/'+filename,'data/'+filename)
@@ -258,7 +277,7 @@ def secret():
 @jwt_optional
 def login():
     if request.method == 'GET':
-      return render_template("login.html",nonce="hello", user=str(get_jwt_identity()))
+      return render_template("login.html",csrf_token=(get_raw_jwt() or {}).get("csrf"), user=str(get_jwt_identity()))
 
     print("[+] creating session")
 
