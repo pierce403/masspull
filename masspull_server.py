@@ -208,6 +208,9 @@ def leaderboard():
 @app.route('/approve')
 @jwt_required
 def approve_file():
+  user = get_jwt_identity()
+  if not user in admins:
+    return "woah, admins only please!"
   filename = request.args.get('f')
   uploaded = Upload.query.filter_by(status="NEW").filter_by(filename=filename).first()
   if not uploaded:
@@ -224,6 +227,9 @@ def approve_file():
 @app.route('/reject')
 @jwt_required
 def reject_file():
+  user = get_jwt_identity()
+  if not user in admins:
+    return "woah, admins only please!"
   filename = request.args.get('f')
   uploaded = Upload.query.filter_by(status="NEW").filter_by(filename=filename).first()
   if not uploaded:
