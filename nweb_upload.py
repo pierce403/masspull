@@ -68,7 +68,7 @@ for line in f:
     # check the first five lines for duplicate data
     count = count+1
     if count < 5:
-      result = es.search(index=service_index, doc_type="_doc", body={ "query": {"query_string": { 'query':"port:"+linedata[2]+" ip:"+linedata[3]+" timestamp:"+linedata[4], "default_operator":"AND" }}})
+      result = es.search(index=service_index, body={ "query": {"query_string": { 'query':"port:"+linedata[2]+" ip:"+linedata[3]+" timestamp:"+linedata[4], "default_operator":"AND" }}})
       if int(result['hits']['total']['value']) > 0:
         exit("we've already seen this data")
 
